@@ -4,16 +4,22 @@ package sso.v1;
 
 option go_package = "github.com/kirill3466/protos/gen/go/sso;ssov1";
 
+import "buf/validate/validate.proto";
+
 service Auth {
     rpc Register (RegisterRequest) returns (RegisterResponse);
     rpc Login    (LoginRequest   ) returns (LoginResponse   );
     rpc IsAdmin  (IsAdminRequest ) returns (IsAdminResponse );
 }
 
-
 message RegisterRequest {
-    string email = 1;
-    string password = 2;
+    string email = 1 [
+        (buf.validate.field).string.email = true,
+        (buf.validate.field).string.max_len = 254
+    ];
+    string password = 2 [
+        (buf.validate.field).string.min_len = 8
+    ];
 }
 
 message RegisterResponse {
@@ -21,9 +27,16 @@ message RegisterResponse {
 }
 
 message LoginRequest {
-    string  email = 1;
-    string  password = 2;
-    int32   app_id = 3;
+    string email = 1 [
+        (buf.validate.field).string.email = true,
+        (buf.validate.field).string.max_len = 254
+    ];
+    string password = 2 [
+        (buf.validate.field).string.min_len = 1
+    ];
+    int32 app_id = 3 [
+        (buf.validate.field).int32.gt = 0
+    ];
 }
 
 message LoginResponse {
@@ -31,7 +44,9 @@ message LoginResponse {
 }
 
 message IsAdminRequest {
-    int64 user_id = 1;
+    int64 user_id = 1 [
+        (buf.validate.field).int64.gt = 0
+    ];
 }
 
 message IsAdminResponse {
