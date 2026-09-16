@@ -4,8 +4,10 @@ go 1.25.3
 
 require (
 	buf.build/go/protovalidate v1.2.0
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/kirill3466/protos v0.0.1
+	golang.org/x/crypto v0.55.0
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12
 )

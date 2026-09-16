@@ -20,7 +20,7 @@ func New(
 ) *App {
 	_ = storagePath
 
-	authService := authservice.New(log, tokenTTL)
+	authService := authservice.New(log, tokenTTL, nil, nil)
 
 	grpcApp := grpc_app.New(log, authService, port)
 
