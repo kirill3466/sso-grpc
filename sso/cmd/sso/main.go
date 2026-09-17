@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"os/signal"
+	"syscall"
+
 	"sso/internal/app"
 	"sso/internal/config"
-	"syscall"
 )
 
 const (
@@ -24,11 +26,11 @@ func main() {
 	log := setupLogger(cfg.Env)
 	log.Info(
 		"starting sso server",
-		slog.Any("cfg", cfg),
+		slog.String("env", cfg.Env),
+		slog.Int("grpc_port", cfg.GRPC.Port),
 	)
 
-	// init
-	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL)
+	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL, cfg.GRPC.Timeout)
 	go application.GRPCSrv.MustRun()
 
 	stop := make(chan os.Signal, 1)
@@ -36,9 +38,14 @@ func main() {
 
 	sig := <-stop
 
-	log.Info("shutting down sso server", "signal", sig)
+	log.Info("shutting down sso server", slog.String("signal", sig.String()))
 
-	application.GRPCSrv.Stop()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+
+	if err := application.GRPCSrv.Stop(shutdownCtx); err != nil {
+		log.Error("grpc shutdown", slog.String("error", err.Error()))
+	}
 
 	log.Info("sso server stopped")
 }

@@ -9,17 +9,17 @@ import (
 )
 
 type Config struct {
-	Env         string        `yaml:"env" env-default:"local"`
-	StoragePath string        `yaml:"storage_path" env-required:"./data"`
-	TokenTTL    time.Duration `yaml:"token_ttl" env-required:"1h"`
-	GRPC        GRPCCOnfig    `yaml:"grpc"`
+	Env             string        `yaml:"env" env-default:"local"`
+	StoragePath     string        `yaml:"storage_path" env-required:"./data"`
+	TokenTTL        time.Duration `yaml:"token_ttl" env-required:"1h"`
+	ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env-default:"15s"`
+	GRPC            GRPCCOnfig    `yaml:"grpc"`
 }
 
 type GRPCCOnfig struct {
 	Port    int           `yaml:"port"`
 	Timeout time.Duration `yaml:"timeout"`
 }
-
 
 func MustLoad() *Config {
 	path := fetchConfigPath()

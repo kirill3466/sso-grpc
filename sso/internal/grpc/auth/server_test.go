@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -47,7 +48,9 @@ func TestLogin_MapsDomainErrors(t *testing.T) {
 	}{
 		{name: "invalid credentials", err: authservice.ErrInvalidCredentials, code: codes.Unauthenticated},
 		{name: "app not found", err: authservice.ErrAppNotFound, code: codes.NotFound},
-		{name: "unknown", err: context.DeadlineExceeded, code: codes.Internal},
+		{name: "deadline", err: context.DeadlineExceeded, code: codes.DeadlineExceeded},
+		{name: "canceled", err: context.Canceled, code: codes.Canceled},
+		{name: "unknown", err: errors.New("sql: boom"), code: codes.Internal},
 	}
 
 	req := &ssov1.LoginRequest{Email: "user@example.com", Password: "secret", AppId: 1}

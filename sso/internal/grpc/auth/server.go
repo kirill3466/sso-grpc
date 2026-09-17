@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"sso/internal/lib"
+	sl "sso/internal/lib"
 	authservice "sso/internal/services/auth"
 )
 
@@ -79,6 +79,10 @@ func (s *serverAPI) grpcError(method string, err error) error {
 		return status.Error(codes.NotFound, "user not found")
 	case errors.Is(err, authservice.ErrAppNotFound):
 		return status.Error(codes.NotFound, "app not found")
+	case errors.Is(err, context.DeadlineExceeded):
+		return status.Error(codes.DeadlineExceeded, "deadline exceeded")
+	case errors.Is(err, context.Canceled):
+		return status.Error(codes.Canceled, "canceled")
 	default:
 		s.log.Error("handler failed", slog.String("method", method), sl.Err(err))
 		return status.Error(codes.Internal, "internal error")

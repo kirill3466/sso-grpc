@@ -12,6 +12,7 @@ import (
 	"sso/internal/domain/models"
 	sl "sso/internal/lib"
 	"sso/internal/lib/jwt"
+	"sso/internal/storage"
 )
 
 type Auth struct {
@@ -74,17 +75,15 @@ func (a *Auth) Login(
 
 	log := a.log.With(
 		slog.String("op", op),
-		slog.String("email", email),
 		slog.Int("app_id", appID),
 	)
 
-	log.Info("logging in user")
+	log.Debug("logging in user")
 
 	user, err := a.userRepository.GetUserByEmail(ctx, email)
-
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			log.Warn("user not found", sl.Err(err))
+		if errors.Is(err, storage.ErrNotFound) {
+			log.Warn("invalid credentials")
 			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 		}
 		log.Error("failed to get user by email", sl.Err(err))
@@ -92,13 +91,13 @@ func (a *Auth) Login(
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		log.Warn("invalid credentials", sl.Err(err))
+		log.Warn("invalid credentials")
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
 	app, err := a.appRepository.GetAppByID(ctx, int64(appID))
 	if err != nil {
-		if errors.Is(err, ErrAppNotFound) {
+		if errors.Is(err, storage.ErrNotFound) {
 			return "", fmt.Errorf("%s: %w", op, ErrAppNotFound)
 		}
 		return "", fmt.Errorf("%s: %w", op, err)
@@ -120,26 +119,27 @@ func (a *Auth) RegisterNewUser(
 ) (int64, error) {
 	const op = "auth.RegisterNewUser"
 
-	log := a.log.With(
-		slog.String("op", op),
-		slog.String("email", email),
-	)
+	log := a.log.With(slog.String("op", op))
 
-	log.Info("registering new user")
+	log.Debug("registering new user")
 
 	passHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Error("failed to generate password hash", "error", err)
+		log.Error("failed to generate password hash", sl.Err(err))
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	userID, err := a.userRepository.CreateUser(ctx, email, string(passHash), false)
 	if err != nil {
-		log.Error("failed to create user", "error", err)
+		if errors.Is(err, storage.ErrAlreadyExists) {
+			log.Warn("user already exists")
+			return 0, fmt.Errorf("%s: %w", op, ErrUserExists)
+		}
+		log.Error("failed to create user", sl.Err(err))
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	log.Info("user created", "user_id", userID)
+	log.Info("user created", slog.Int64("user_id", userID))
 
 	return userID, nil
 }
@@ -155,15 +155,18 @@ func (a *Auth) IsAdmin(
 		slog.Int64("user_id", userID),
 	)
 
-	log.Info("checking if user is admin")
+	log.Debug("checking if user is admin")
 
 	isAdmin, err := a.userRepository.IsAdmin(ctx, userID)
 	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return false, fmt.Errorf("%s: %w", op, ErrUserNotFound)
+		}
 		log.Error("failed to check if user is admin", sl.Err(err))
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 
-	log.Info("user is admin", "is_admin", isAdmin)
+	log.Debug("user admin check done", slog.Bool("is_admin", isAdmin))
 
 	return isAdmin, nil
 }
