@@ -157,6 +157,7 @@ func (a *Auth) IsAdmin(
 
 	log.Debug("checking if user is admin")
 
+
 	isAdmin, err := a.userRepository.IsAdmin(ctx, userID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {

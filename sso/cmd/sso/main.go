@@ -18,33 +18,46 @@ const (
 )
 
 func main() {
-	// conf
-
 	cfg := config.MustLoad()
-
-	// logger
 	log := setupLogger(cfg.Env)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	log.Info(
 		"starting sso server",
 		slog.String("env", cfg.Env),
 		slog.Int("grpc_port", cfg.GRPC.Port),
 	)
 
-	application := app.New(log, cfg.GRPC.Port, cfg.StoragePath, cfg.TokenTTL, cfg.GRPC.Timeout)
-	go application.GRPCSrv.MustRun()
+	application, err := app.New(ctx, log, cfg)
+	if err != nil {
+		log.Error("failed to create application", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- application.GRPCSrv.Run()
+	}()
 
-	sig := <-stop
+	select {
+	case <-ctx.Done():
+		log.Info("shutting down sso server")
+	case err := <-errCh:
+		if err != nil {
+			log.Error("grpc server failed", slog.String("error", err.Error()))
+		}
+	}
 
-	log.Info("shutting down sso server", slog.String("signal", sig.String()))
+	stop()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
-	if err := application.GRPCSrv.Stop(shutdownCtx); err != nil {
-		log.Error("grpc shutdown", slog.String("error", err.Error()))
+	if err := application.Stop(shutdownCtx); err != nil {
+		log.Error("shutdown failed", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
 	log.Info("sso server stopped")
