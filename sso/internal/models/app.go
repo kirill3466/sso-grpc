@@ -1,7 +1,7 @@
 package models
 
 type App struct {
-	ID     int64  `json:"id"`
-	Name   string `json:"name"`
-	Secret string `json:"secret"`
+	ID     int64 
+	Name   string
+	Secret string 
 }

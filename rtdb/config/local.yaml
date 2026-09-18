@@ -1,0 +1,13 @@
+env: "local"
+# env: "prod"
+shutdown_timeout: 15s
+grpc:
+  port: 5555
+  timeout: 5s
+sso:
+  addr: "127.0.0.1:4444"
+write_user_ids: [1]
+write_emails: []
+stale_after: 1s
+simulate: true
+simulate_every: 100ms

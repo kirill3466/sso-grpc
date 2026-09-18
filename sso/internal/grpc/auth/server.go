@@ -20,6 +20,7 @@ type Auth interface {
 	Login(ctx context.Context, email string, password string, appID int) (token string, err error)
 	RegisterNewUser(ctx context.Context, email string, password string) (userID int64, err error)
 	IsAdmin(ctx context.Context, accessToken string, userID int64) (isAdmin bool, err error)
+	Validate(ctx context.Context, accessToken string) (authservice.TokenInfo, error)
 }
 
 type serverAPI struct {
@@ -74,6 +75,28 @@ func (s *serverAPI) IsAdmin(
 	}
 
 	return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
+}
+
+func (s *serverAPI) Validate(
+	ctx context.Context,
+	_ *ssov1.ValidateRequest,
+) (*ssov1.ValidateResponse, error) {
+	token, err := bearerFrom(ctx)
+	if err != nil {
+		return nil, s.grpcError("Validate", err)
+	}
+
+	info, err := s.auth.Validate(ctx, token)
+	if err != nil {
+		return nil, s.grpcError("Validate", err)
+	}
+
+	return &ssov1.ValidateResponse{
+		UserId:  info.UserID,
+		Email:   info.Email,
+		AppId:   info.AppID,
+		IsAdmin: info.IsAdmin,
+	}, nil
 }
 
 func bearerFrom(ctx context.Context) (string, error) {

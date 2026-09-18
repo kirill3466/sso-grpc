@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package rtdb.v1;
+
+option go_package = "github.com/kirill3466/protos/gen/go/rtdb;rtdbv1";
+
+import "buf/validate/validate.proto";
+
+// тип тега
+// (аналоговый вход, аналоговый выход,
+// дискретный вход, дискретный выход, память, вычисляемый)
+enum TagKind {
+    TAG_KIND_UNSPECIFIED = 0;
+    TAG_KIND_AI = 1;
+    TAG_KIND_AO = 2;
+    TAG_KIND_DI = 3;
+    TAG_KIND_DO = 4;
+    TAG_KIND_MEM = 5;
+    TAG_KIND_CALC = 6;
+}
+
+enum Quality {
+    QUALITY_UNSPECIFIED = 0;
+    QUALITY_GOOD = 1;
+    QUALITY_UNCERTAIN = 2;
+    QUALITY_BAD = 3;
+}
+
+enum Access {
+    ACCESS_UNSPECIFIED = 0;
+    ACCESS_READ = 1;
+    ACCESS_WRITE = 2;
+    ACCESS_READ_WRITE = 3;
+}
+
+enum DataType {
+    DATA_TYPE_UNSPECIFIED = 0;
+    DATA_TYPE_FLOAT = 1;
+    DATA_TYPE_INT = 2;
+    DATA_TYPE_BOOL = 3;
+    DATA_TYPE_STRING = 4;
+}
+
+enum SourceType {
+    SOURCE_TYPE_UNSPECIFIED = 0;
+    SOURCE_TYPE_PLC = 1;
+    SOURCE_TYPE_OPCUA = 2;
+    SOURCE_TYPE_MODBUS = 3;
+    SOURCE_TYPE_CALC = 4;
+    SOURCE_TYPE_MANUAL = 5;
+}
+
+message TagDef {
+    option (buf.validate.message).cel = {
+        id: "tagdef"
+        expression:
+            "this.name.size() >= 1 && this.name.size() <= 255"
+            " && this.kind != 0 && this.data_type != 0 && this.access != 0 && this.source_type != 0"
+            " && this.address.size() >= 1 && this.address.size() <= 128"
+            " && this.scan_ms >= 10 && this.scan_ms <= 60000"
+            " && this.deadband >= 0"
+            " && this.eng_low < this.eng_high"
+            " && this.lo_lo <= this.lo && this.lo <= this.hi && this.hi <= this.hi_hi"
+    };
+
+    string name = 1;
+    string display_name = 2;
+    string description = 3;
+    TagKind kind = 4;
+    DataType data_type = 5;
+    Access access = 6;
+    string eng_unit = 7;       // единица измерения
+    // рабочий диапазон шкалы
+    double eng_low = 8;        // низ шкалы, например 4 мА
+    double eng_high = 9;       // верх шкалы, например 20 мА
+    SourceType source_type = 10;
+    string address = 11;
+    int32 scan_ms = 12;        // период опроса
+    double deadband = 13;      // не слать, если дельта меньше порога
+    // аварийные пороги
+    double lo_lo = 14;         // авария низкая
+    double lo = 15;            // предупреждение низкое
+    double hi = 16;            // предупреждение высокое
+    double hi_hi = 17;         // авария высокая  
+    // пишем ли в архив
+    bool archive = 18;
+}
+
+message TagValue {
+    string name = 1;
+    double value = 2;
+    Quality quality = 3;
+    int64 ts_unix_ms = 4;
+}
+
+message Tag {
+    TagDef def = 1;
+    TagValue value = 2;
+}
+
+message GetTagRequest {
+    string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+}
+
+message SetTagRequest {
+    string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+    double value = 2 [(buf.validate.field).double.finite = true];
+}
+
+message SubscribeRequest {
+    repeated string names = 1 [(buf.validate.field).repeated = {
+        min_items: 1
+        max_items: 256
+        items: {string: {min_len: 1, max_len: 255}}
+    }];
+}
+
+service RTDB {
+    rpc GetTag (GetTagRequest) returns (TagValue);
+    rpc SetTag (SetTagRequest) returns (TagValue);
+    rpc Subscribe (SubscribeRequest) returns (stream TagValue);
+}

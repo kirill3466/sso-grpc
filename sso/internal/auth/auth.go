@@ -207,3 +207,53 @@ func (a *Auth) IsAdmin(
 
 	return isAdmin, nil
 }
+
+type TokenInfo struct {
+	UserID  int64
+	Email   string
+	AppID   int64
+	IsAdmin bool
+}
+
+func (a *Auth) Validate(ctx context.Context, accessToken string) (TokenInfo, error) {
+	const op = "auth.Validate"
+
+	if accessToken == "" {
+		return TokenInfo{}, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+	}
+
+	appID, err := jwt.PeekAppID(accessToken)
+	if err != nil {
+		return TokenInfo{}, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+	}
+
+	app, err := a.appRepository.GetAppByID(ctx, appID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return TokenInfo{}, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+		}
+		a.log.Error("failed to get app", slog.String("op", op), slogx.Err(err))
+		return TokenInfo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	claims, err := jwt.Parse(accessToken, app.Secret, app.Name)
+	if err != nil {
+		return TokenInfo{}, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+	}
+
+	isAdmin, err := a.userRepository.IsAdmin(ctx, claims.UID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return TokenInfo{}, fmt.Errorf("%s: %w", op, ErrUserNotFound)
+		}
+		a.log.Error("failed to check if user is admin", slog.String("op", op), slogx.Err(err))
+		return TokenInfo{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return TokenInfo{
+		UserID:  claims.UID,
+		Email:   claims.Email,
+		AppID:   claims.AppID,
+		IsAdmin: isAdmin,
+	}, nil
+}
