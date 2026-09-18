@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	grprecovery "sso/internal/grpc/recovery"
+	grprecovery "sso/internal/grpc/interceptors/recovery"
 )
 
 func TestUnaryInterceptorRecoversPanic(t *testing.T) {

@@ -4,20 +4,22 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 
 	ssov1 "github.com/kirill3466/protos/gen/go/sso"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	sl "sso/internal/lib"
-	authservice "sso/internal/services/auth"
+	authservice "sso/internal/auth"
+	"sso/internal/slogx"
 )
 
 type Auth interface {
 	Login(ctx context.Context, email string, password string, appID int) (token string, err error)
 	RegisterNewUser(ctx context.Context, email string, password string) (userID int64, err error)
-	IsAdmin(ctx context.Context, userID int64) (isAdmin bool, err error)
+	IsAdmin(ctx context.Context, accessToken string, userID int64) (isAdmin bool, err error)
 }
 
 type serverAPI struct {
@@ -61,7 +63,12 @@ func (s *serverAPI) IsAdmin(
 	ctx context.Context,
 	req *ssov1.IsAdminRequest,
 ) (*ssov1.IsAdminResponse, error) {
-	isAdmin, err := s.auth.IsAdmin(ctx, req.GetUserId())
+	token, err := bearerFrom(ctx)
+	if err != nil {
+		return nil, s.grpcError("IsAdmin", err)
+	}
+
+	isAdmin, err := s.auth.IsAdmin(ctx, token, req.GetUserId())
 	if err != nil {
 		return nil, s.grpcError("IsAdmin", err)
 	}
@@ -69,10 +76,33 @@ func (s *serverAPI) IsAdmin(
 	return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
 }
 
+func bearerFrom(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", authservice.ErrUnauthenticated
+	}
+
+	values := md.Get("authorization")
+	if len(values) == 0 {
+		return "", authservice.ErrUnauthenticated
+	}
+
+	scheme, token, found := strings.Cut(values[0], " ")
+	if !found || !strings.EqualFold(scheme, "bearer") || token == "" {
+		return "", authservice.ErrUnauthenticated
+	}
+
+	return token, nil
+}
+
 func (s *serverAPI) grpcError(method string, err error) error {
 	switch {
 	case errors.Is(err, authservice.ErrInvalidCredentials):
 		return status.Error(codes.Unauthenticated, "invalid credentials")
+	case errors.Is(err, authservice.ErrUnauthenticated):
+		return status.Error(codes.Unauthenticated, "unauthenticated")
+	case errors.Is(err, authservice.ErrAccessDenied):
+		return status.Error(codes.PermissionDenied, "permission denied")
 	case errors.Is(err, authservice.ErrUserExists):
 		return status.Error(codes.AlreadyExists, "user already exists")
 	case errors.Is(err, authservice.ErrUserNotFound):
@@ -84,7 +114,7 @@ func (s *serverAPI) grpcError(method string, err error) error {
 	case errors.Is(err, context.Canceled):
 		return status.Error(codes.Canceled, "canceled")
 	default:
-		s.log.Error("handler failed", slog.String("method", method), sl.Err(err))
+		s.log.Error("handler failed", slog.String("method", method), slogx.Err(err))
 		return status.Error(codes.Internal, "internal error")
 	}
 }

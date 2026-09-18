@@ -9,11 +9,21 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"sso/internal/domain/models"
-	sl "sso/internal/lib"
-	"sso/internal/lib/jwt"
+	"sso/internal/jwt"
+	"sso/internal/models"
+	"sso/internal/slogx"
 	"sso/internal/storage"
 )
+
+var dummyPasswordHash []byte
+
+func init() {
+	hash, err := bcrypt.GenerateFromPassword([]byte("timing-dummy"), bcrypt.DefaultCost)
+	if err != nil {
+		panic("auth: dummy password hash: " + err.Error())
+	}
+	dummyPasswordHash = hash
+}
 
 type Auth struct {
 	log            *slog.Logger
@@ -81,16 +91,17 @@ func (a *Auth) Login(
 	log.Debug("logging in user")
 
 	user, err := a.userRepository.GetUserByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
-			log.Warn("invalid credentials")
-			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
-		}
-		log.Error("failed to get user by email", sl.Err(err))
+	if err != nil && !errors.Is(err, storage.ErrNotFound) {
+		log.Error("failed to get user by email", slogx.Err(err))
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	hash := dummyPasswordHash
+	if user != nil {
+		hash = []byte(user.PasswordHash)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(hash, []byte(password)); err != nil || user == nil {
 		log.Warn("invalid credentials")
 		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
@@ -105,7 +116,7 @@ func (a *Auth) Login(
 
 	token, err := jwt.NewToken(*user, *app, a.tokenTTL)
 	if err != nil {
-		log.Error("failed to generate token", sl.Err(err))
+		log.Error("failed to generate token", slogx.Err(err))
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -125,7 +136,7 @@ func (a *Auth) RegisterNewUser(
 
 	passHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Error("failed to generate password hash", sl.Err(err))
+		log.Error("failed to generate password hash", slogx.Err(err))
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -135,7 +146,7 @@ func (a *Auth) RegisterNewUser(
 			log.Warn("user already exists")
 			return 0, fmt.Errorf("%s: %w", op, ErrUserExists)
 		}
-		log.Error("failed to create user", sl.Err(err))
+		log.Error("failed to create user", slogx.Err(err))
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -146,6 +157,7 @@ func (a *Auth) RegisterNewUser(
 
 func (a *Auth) IsAdmin(
 	ctx context.Context,
+	accessToken string,
 	userID int64,
 ) (bool, error) {
 	const op = "auth.IsAdmin"
@@ -155,15 +167,39 @@ func (a *Auth) IsAdmin(
 		slog.Int64("user_id", userID),
 	)
 
-	log.Debug("checking if user is admin")
+	if accessToken == "" {
+		return false, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+	}
 
+	appID, err := jwt.PeekAppID(accessToken)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+	}
 
-	isAdmin, err := a.userRepository.IsAdmin(ctx, userID)
+	app, err := a.appRepository.GetAppByID(ctx, appID)
+	if err != nil {
+		if errors.Is(err, storage.ErrNotFound) {
+			return false, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+		}
+		log.Error("failed to get app", slogx.Err(err))
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+
+	claims, err := jwt.Parse(accessToken, app.Secret, app.Name)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", op, ErrUnauthenticated)
+	}
+
+	if claims.UID != userID {
+		return false, fmt.Errorf("%s: %w", op, ErrAccessDenied)
+	}
+
+	isAdmin, err := a.userRepository.IsAdmin(ctx, claims.UID)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
 			return false, fmt.Errorf("%s: %w", op, ErrUserNotFound)
 		}
-		log.Error("failed to check if user is admin", sl.Err(err))
+		log.Error("failed to check if user is admin", slogx.Err(err))
 		return false, fmt.Errorf("%s: %w", op, err)
 	}
 

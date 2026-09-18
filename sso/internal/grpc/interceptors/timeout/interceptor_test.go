@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	grptimeout "sso/internal/grpc/timeout"
+	grptimeout "sso/internal/grpc/interceptors/timeout"
 )
 
 func TestUnaryInterceptorSetsDeadline(t *testing.T) {

@@ -9,14 +9,17 @@ import (
 
 	ssov1 "github.com/kirill3466/protos/gen/go/sso"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	authservice "sso/internal/services/auth"
+	authservice "sso/internal/auth"
 )
 
 type stubAuth struct {
-	loginErr error
-	token    string
+	loginErr   error
+	token      string
+	isAdmin    bool
+	isAdminErr error
 }
 
 func (s stubAuth) Login(context.Context, string, string, int) (string, error) {
@@ -27,8 +30,8 @@ func (s stubAuth) RegisterNewUser(context.Context, string, string) (int64, error
 	return 0, nil
 }
 
-func (s stubAuth) IsAdmin(context.Context, int64) (bool, error) {
-	return false, nil
+func (s stubAuth) IsAdmin(context.Context, string, int64) (bool, error) {
+	return s.isAdmin, s.isAdminErr
 }
 
 func newTestServer(auth Auth) *serverAPI {
@@ -83,5 +86,49 @@ func TestLogin_Success(t *testing.T) {
 	}
 	if resp.GetToken() != "jwt-token" {
 		t.Fatalf("token = %q", resp.GetToken())
+	}
+}
+
+func TestIsAdmin_RequiresBearer(t *testing.T) {
+	t.Parallel()
+
+	_, err := newTestServer(stubAuth{isAdmin: true}).IsAdmin(
+		context.Background(),
+		&ssov1.IsAdminRequest{UserId: 1},
+	)
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("got %v, want Unauthenticated", err)
+	}
+}
+
+func TestIsAdmin_Success(t *testing.T) {
+	t.Parallel()
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		"authorization", "Bearer test-token",
+	))
+
+	resp, err := newTestServer(stubAuth{isAdmin: true}).IsAdmin(ctx, &ssov1.IsAdminRequest{UserId: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resp.GetIsAdmin() {
+		t.Fatal("want is_admin true")
+	}
+}
+
+func TestIsAdmin_MapsAccessDenied(t *testing.T) {
+	t.Parallel()
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		"authorization", "Bearer test-token",
+	))
+
+	_, err := newTestServer(stubAuth{isAdminErr: authservice.ErrAccessDenied}).IsAdmin(
+		ctx,
+		&ssov1.IsAdminRequest{UserId: 2},
+	)
+	if status.Code(err) != codes.PermissionDenied {
+		t.Fatalf("got %v, want PermissionDenied", err)
 	}
 }

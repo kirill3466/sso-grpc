@@ -10,7 +10,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-
 func UnaryServerInterceptor(validator protovalidate.Validator) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,

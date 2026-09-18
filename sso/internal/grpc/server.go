@@ -1,4 +1,4 @@
-package grpc_app
+package grpc
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 	"time"
 
 	authgrpc "sso/internal/grpc/auth"
-	grprecovery "sso/internal/grpc/recovery"
-	grptimeout "sso/internal/grpc/timeout"
-	grpvalidate "sso/internal/grpc/validate"
+	grprecovery "sso/internal/grpc/interceptors/recovery"
+	grptimeout "sso/internal/grpc/interceptors/timeout"
+	grpvalidate "sso/internal/grpc/interceptors/validate"
 
 	"buf.build/go/protovalidate"
-	"google.golang.org/grpc"
+	gogrpc "google.golang.org/grpc"
 )
 
 type App struct {
-	gRPCServer *grpc.Server
+	gRPCServer *gogrpc.Server
 	log        *slog.Logger
 	port       int
 }
@@ -33,8 +33,8 @@ func New(
 		panic(fmt.Errorf("protovalidate: %w", err))
 	}
 
-	gRPCServer := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
+	gRPCServer := gogrpc.NewServer(
+		gogrpc.ChainUnaryInterceptor(
 			grprecovery.UnaryServerInterceptor(log),
 			grptimeout.UnaryServerInterceptor(timeout),
 			grpvalidate.UnaryServerInterceptor(validator),
@@ -50,14 +50,8 @@ func New(
 	}
 }
 
-func (a *App) MustRun() {
-	if err := a.Run(); err != nil {
-		panic(err)
-	}
-}
-
 func (a *App) Run() error {
-	const op = "app.grpc_app.Run"
+	const op = "grpc.Run"
 
 	log := a.log.With(
 		slog.String("op", op),
@@ -79,7 +73,7 @@ func (a *App) Run() error {
 }
 
 func (a *App) Stop(ctx context.Context) error {
-	const op = "app.grpc_app.Stop"
+	const op = "grpc.Stop"
 
 	a.log.With(slog.String("op", op)).
 		Info("stopping gRPC server", slog.Int("port", a.port))

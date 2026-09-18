@@ -5,14 +5,14 @@ import (
 	"errors"
 	"log/slog"
 
-	grpc_app "sso/internal/app/grpc"
+	"sso/internal/auth"
 	"sso/internal/config"
-	authservice "sso/internal/services/auth"
+	ssogrpc "sso/internal/grpc"
 	"sso/internal/storage/sqlite"
 )
 
 type App struct {
-	GRPCSrv *grpc_app.App
+	GRPCSrv *ssogrpc.App
 	storage *sqlite.Storage
 }
 
@@ -22,8 +22,8 @@ func New(ctx context.Context, log *slog.Logger, cfg *config.Config) (*App, error
 		return nil, err
 	}
 
-	authService := authservice.New(log, cfg.TokenTTL, storage, storage)
-	grpcApp := grpc_app.New(log, authService, cfg.GRPC.Port, cfg.GRPC.Timeout)
+	authService := auth.New(log, cfg.TokenTTL, storage, storage)
+	grpcApp := ssogrpc.New(log, authService, cfg.GRPC.Port, cfg.GRPC.Timeout)
 
 	return &App{GRPCSrv: grpcApp, storage: storage}, nil
 }

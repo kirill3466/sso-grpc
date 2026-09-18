@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"sso/internal/domain/models"
+	"sso/internal/models"
 )
 
 const (

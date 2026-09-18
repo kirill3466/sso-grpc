@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	grpvalidate "sso/internal/grpc/validate"
+	grpvalidate "sso/internal/grpc/interceptors/validate"
 )
 
 func TestLoginRequestRules(t *testing.T) {
