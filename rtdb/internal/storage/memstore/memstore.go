@@ -2,6 +2,7 @@ package memstore
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -25,8 +26,8 @@ func New(ctx context.Context, tags []models.Tag, staleAfter time.Duration) (*Sto
 	byName := make(map[string]models.Tag, len(tags))
 	baselines := make([]models.Tag, 0, len(tags))
 	for _, tag := range tags {
-		byName[tag.Name] = tag
-		if !tag.Access.Writable() {
+		byName[tag.Def.Name] = tag
+		if !tag.Def.Access.Writable() {
 			baselines = append(baselines, tag)
 		}
 	}
@@ -39,9 +40,9 @@ func New(ctx context.Context, tags []models.Tag, staleAfter time.Duration) (*Sto
 	}, nil
 }
 
-func (s *Storage) Get(ctx context.Context, name string) (models.TagValue, error) {
+func (s *Storage) Get(ctx context.Context, name string) (models.Tag, error) {
 	if err := ctx.Err(); err != nil {
-		return models.TagValue{}, err
+		return models.Tag{}, err
 	}
 
 	s.mu.RLock()
@@ -49,10 +50,28 @@ func (s *Storage) Get(ctx context.Context, name string) (models.TagValue, error)
 
 	tag, ok := s.tags[name]
 	if !ok {
-		return models.TagValue{}, storage.ErrNotFound
+		return models.Tag{}, storage.ErrNotFound
 	}
 
-	return s.withQuality(tag), nil
+	return s.view(tag), nil
+}
+
+func (s *Storage) List(ctx context.Context) ([]models.Tag, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make([]models.Tag, 0, len(s.tags))
+	for _, tag := range s.tags {
+		out = append(out, s.view(tag))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Def.Name < out[j].Def.Name
+	})
+	return out, nil
 }
 
 func (s *Storage) Set(ctx context.Context, name string, value float64) (models.TagValue, error) {
@@ -67,29 +86,18 @@ func (s *Storage) Set(ctx context.Context, name string, value float64) (models.T
 	if !ok {
 		return models.TagValue{}, storage.ErrNotFound
 	}
-	if !tag.Access.Writable() {
+	if !tag.Def.Access.Writable() {
 		return models.TagValue{}, storage.ErrReadOnly
 	}
 
-	tag.Value = value
-	tag.Quality = models.QualityGood
-	tag.TsUnixMs = s.now().UnixMilli()
+	tag.Value.Value = tag.Def.Coerce(value)
+	tag.Value.Quality = models.QualityGood
+	tag.Value.TsUnixMs = s.now().UnixMilli()
 	s.tags[name] = tag
 
-	return tag.TagValue, nil
+	return s.view(tag).Value, nil
 }
 
-func (s *Storage) withQuality(tag models.Tag) models.TagValue {
-	value := tag.TagValue
-	if tag.Access.Writable() {
-		return value
-	}
-	if s.staleAfter <= 0 {
-		return value
-	}
-	age := s.now().Sub(time.UnixMilli(value.TsUnixMs))
-	if age > s.staleAfter {
-		value.Quality = models.QualityBad
-	}
-	return value
+func (s *Storage) view(tag models.Tag) models.Tag {
+	return tag.WithLiveQuality(s.now(), s.staleAfter)
 }

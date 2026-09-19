@@ -7,7 +7,7 @@ grpc:
 sso:
   addr: "127.0.0.1:4444"
 write_user_ids: [1]
-write_emails: []
+write_emails: ["test@mail.ru"]
 stale_after: 1s
 simulate: true
 simulate_every: 100ms

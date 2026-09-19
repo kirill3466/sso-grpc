@@ -746,6 +746,86 @@ func (x *SubscribeRequest) GetNames() []string {
 	return nil
 }
 
+type ListTagsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTagsRequest) Reset() {
+	*x = ListTagsRequest{}
+	mi := &file_rtdb_rtdb_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTagsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTagsRequest) ProtoMessage() {}
+
+func (x *ListTagsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rtdb_rtdb_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTagsRequest.ProtoReflect.Descriptor instead.
+func (*ListTagsRequest) Descriptor() ([]byte, []int) {
+	return file_rtdb_rtdb_proto_rawDescGZIP(), []int{6}
+}
+
+type ListTagsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tags          []*Tag                 `protobuf:"bytes,1,rep,name=tags,proto3" json:"tags,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListTagsResponse) Reset() {
+	*x = ListTagsResponse{}
+	mi := &file_rtdb_rtdb_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListTagsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListTagsResponse) ProtoMessage() {}
+
+func (x *ListTagsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rtdb_rtdb_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListTagsResponse.ProtoReflect.Descriptor instead.
+func (*ListTagsResponse) Descriptor() ([]byte, []int) {
+	return file_rtdb_rtdb_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *ListTagsResponse) GetTags() []*Tag {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
 var File_rtdb_rtdb_proto protoreflect.FileDescriptor
 
 const file_rtdb_rtdb_proto_rawDesc = "" +
@@ -790,7 +870,10 @@ const file_rtdb_rtdb_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\xff\x01R\x04name\x12\x1d\n" +
 	"\x05value\x18\x02 \x01(\x01B\a\xbaH\x04\x12\x02@\x01R\x05value\">\n" +
 	"\x10SubscribeRequest\x12*\n" +
-	"\x05names\x18\x01 \x03(\tB\x14\xbaH\x11\x92\x01\x0e\b\x01\x10\x80\x02\"\ar\x05\x10\x01\x18\xff\x01R\x05names*\x8c\x01\n" +
+	"\x05names\x18\x01 \x03(\tB\x14\xbaH\x11\x92\x01\x0e\b\x01\x10\x80\x02\"\ar\x05\x10\x01\x18\xff\x01R\x05names\"\x11\n" +
+	"\x0fListTagsRequest\"4\n" +
+	"\x10ListTagsResponse\x12 \n" +
+	"\x04tags\x18\x01 \x03(\v2\f.rtdb.v1.TagR\x04tags*\x8c\x01\n" +
 	"\aTagKind\x12\x18\n" +
 	"\x14TAG_KIND_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vTAG_KIND_AI\x10\x01\x12\x0f\n" +
@@ -822,10 +905,11 @@ const file_rtdb_rtdb_proto_rawDesc = "" +
 	"\x11SOURCE_TYPE_OPCUA\x10\x02\x12\x16\n" +
 	"\x12SOURCE_TYPE_MODBUS\x10\x03\x12\x14\n" +
 	"\x10SOURCE_TYPE_CALC\x10\x04\x12\x16\n" +
-	"\x12SOURCE_TYPE_MANUAL\x10\x052\xad\x01\n" +
-	"\x04RTDB\x123\n" +
-	"\x06GetTag\x12\x16.rtdb.v1.GetTagRequest\x1a\x11.rtdb.v1.TagValue\x123\n" +
-	"\x06SetTag\x12\x16.rtdb.v1.SetTagRequest\x1a\x11.rtdb.v1.TagValue\x12;\n" +
+	"\x12SOURCE_TYPE_MANUAL\x10\x052\xe9\x01\n" +
+	"\x04RTDB\x12.\n" +
+	"\x06GetTag\x12\x16.rtdb.v1.GetTagRequest\x1a\f.rtdb.v1.Tag\x123\n" +
+	"\x06SetTag\x12\x16.rtdb.v1.SetTagRequest\x1a\x11.rtdb.v1.TagValue\x12?\n" +
+	"\bListTags\x12\x18.rtdb.v1.ListTagsRequest\x1a\x19.rtdb.v1.ListTagsResponse\x12;\n" +
 	"\tSubscribe\x12\x19.rtdb.v1.SubscribeRequest\x1a\x11.rtdb.v1.TagValue0\x01B1Z/github.com/kirill3466/protos/gen/go/rtdb;rtdbv1b\x06proto3"
 
 var (
@@ -841,7 +925,7 @@ func file_rtdb_rtdb_proto_rawDescGZIP() []byte {
 }
 
 var file_rtdb_rtdb_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_rtdb_rtdb_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_rtdb_rtdb_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_rtdb_rtdb_proto_goTypes = []any{
 	(TagKind)(0),             // 0: rtdb.v1.TagKind
 	(Quality)(0),             // 1: rtdb.v1.Quality
@@ -854,6 +938,8 @@ var file_rtdb_rtdb_proto_goTypes = []any{
 	(*GetTagRequest)(nil),    // 8: rtdb.v1.GetTagRequest
 	(*SetTagRequest)(nil),    // 9: rtdb.v1.SetTagRequest
 	(*SubscribeRequest)(nil), // 10: rtdb.v1.SubscribeRequest
+	(*ListTagsRequest)(nil),  // 11: rtdb.v1.ListTagsRequest
+	(*ListTagsResponse)(nil), // 12: rtdb.v1.ListTagsResponse
 }
 var file_rtdb_rtdb_proto_depIdxs = []int32{
 	0,  // 0: rtdb.v1.TagDef.kind:type_name -> rtdb.v1.TagKind
@@ -863,17 +949,20 @@ var file_rtdb_rtdb_proto_depIdxs = []int32{
 	1,  // 4: rtdb.v1.TagValue.quality:type_name -> rtdb.v1.Quality
 	5,  // 5: rtdb.v1.Tag.def:type_name -> rtdb.v1.TagDef
 	6,  // 6: rtdb.v1.Tag.value:type_name -> rtdb.v1.TagValue
-	8,  // 7: rtdb.v1.RTDB.GetTag:input_type -> rtdb.v1.GetTagRequest
-	9,  // 8: rtdb.v1.RTDB.SetTag:input_type -> rtdb.v1.SetTagRequest
-	10, // 9: rtdb.v1.RTDB.Subscribe:input_type -> rtdb.v1.SubscribeRequest
-	6,  // 10: rtdb.v1.RTDB.GetTag:output_type -> rtdb.v1.TagValue
-	6,  // 11: rtdb.v1.RTDB.SetTag:output_type -> rtdb.v1.TagValue
-	6,  // 12: rtdb.v1.RTDB.Subscribe:output_type -> rtdb.v1.TagValue
-	10, // [10:13] is the sub-list for method output_type
-	7,  // [7:10] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	7,  // 7: rtdb.v1.ListTagsResponse.tags:type_name -> rtdb.v1.Tag
+	8,  // 8: rtdb.v1.RTDB.GetTag:input_type -> rtdb.v1.GetTagRequest
+	9,  // 9: rtdb.v1.RTDB.SetTag:input_type -> rtdb.v1.SetTagRequest
+	11, // 10: rtdb.v1.RTDB.ListTags:input_type -> rtdb.v1.ListTagsRequest
+	10, // 11: rtdb.v1.RTDB.Subscribe:input_type -> rtdb.v1.SubscribeRequest
+	7,  // 12: rtdb.v1.RTDB.GetTag:output_type -> rtdb.v1.Tag
+	6,  // 13: rtdb.v1.RTDB.SetTag:output_type -> rtdb.v1.TagValue
+	12, // 14: rtdb.v1.RTDB.ListTags:output_type -> rtdb.v1.ListTagsResponse
+	6,  // 15: rtdb.v1.RTDB.Subscribe:output_type -> rtdb.v1.TagValue
+	12, // [12:16] is the sub-list for method output_type
+	8,  // [8:12] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_rtdb_rtdb_proto_init() }
@@ -887,7 +976,7 @@ func file_rtdb_rtdb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rtdb_rtdb_proto_rawDesc), len(file_rtdb_rtdb_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

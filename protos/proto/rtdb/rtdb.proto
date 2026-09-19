@@ -115,8 +115,15 @@ message SubscribeRequest {
     }];
 }
 
+message ListTagsRequest {}
+
+message ListTagsResponse {
+    repeated Tag tags = 1;
+}
+
 service RTDB {
-    rpc GetTag (GetTagRequest) returns (TagValue);
+    rpc GetTag (GetTagRequest) returns (Tag);
     rpc SetTag (SetTagRequest) returns (TagValue);
+    rpc ListTags (ListTagsRequest) returns (ListTagsResponse);
     rpc Subscribe (SubscribeRequest) returns (stream TagValue);
 }

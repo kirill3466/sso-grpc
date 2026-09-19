@@ -34,23 +34,29 @@ func (s *Storage) tick(now time.Time) {
 
 	ts := now.UnixMilli()
 	for i, base := range s.baselines {
-		tag, ok := s.tags[base.Name]
+		tag, ok := s.tags[base.Def.Name]
 		if !ok {
 			continue
 		}
-		tag.Value = animate(base, now, i)
-		tag.Quality = models.QualityGood
-		tag.TsUnixMs = ts
-		s.tags[base.Name] = tag
+		if tag.Def.ScanMs > 0 {
+			age := now.Sub(time.UnixMilli(tag.Value.TsUnixMs))
+			if age < time.Duration(tag.Def.ScanMs)*time.Millisecond {
+				continue
+			}
+		}
+		tag.Value.Value = base.Def.Coerce(animate(base, now, i))
+		tag.Value.Quality = models.QualityGood
+		tag.Value.TsUnixMs = ts
+		s.tags[base.Def.Name] = tag
 	}
 }
 
 func animate(tag models.Tag, now time.Time, i int) float64 {
-	if tag.Value == 0 || tag.Value == 1 {
+	if tag.Def.Discrete() {
 		if (now.Unix()/5+int64(i))%2 == 0 {
 			return 1
 		}
 		return 0
 	}
-	return tag.Value * (1 + 0.04*math.Sin(float64(now.UnixMilli())/800+float64(i)))
+	return tag.Value.Value * (1 + 0.04*math.Sin(float64(now.UnixMilli())/800+float64(i)))
 }

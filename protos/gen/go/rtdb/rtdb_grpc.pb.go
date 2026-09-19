@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	RTDB_GetTag_FullMethodName    = "/rtdb.v1.RTDB/GetTag"
 	RTDB_SetTag_FullMethodName    = "/rtdb.v1.RTDB/SetTag"
+	RTDB_ListTags_FullMethodName  = "/rtdb.v1.RTDB/ListTags"
 	RTDB_Subscribe_FullMethodName = "/rtdb.v1.RTDB/Subscribe"
 )
 
@@ -28,8 +29,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RTDBClient interface {
-	GetTag(ctx context.Context, in *GetTagRequest, opts ...grpc.CallOption) (*TagValue, error)
+	GetTag(ctx context.Context, in *GetTagRequest, opts ...grpc.CallOption) (*Tag, error)
 	SetTag(ctx context.Context, in *SetTagRequest, opts ...grpc.CallOption) (*TagValue, error)
+	ListTags(ctx context.Context, in *ListTagsRequest, opts ...grpc.CallOption) (*ListTagsResponse, error)
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[TagValue], error)
 }
 
@@ -41,9 +43,9 @@ func NewRTDBClient(cc grpc.ClientConnInterface) RTDBClient {
 	return &rTDBClient{cc}
 }
 
-func (c *rTDBClient) GetTag(ctx context.Context, in *GetTagRequest, opts ...grpc.CallOption) (*TagValue, error) {
+func (c *rTDBClient) GetTag(ctx context.Context, in *GetTagRequest, opts ...grpc.CallOption) (*Tag, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(TagValue)
+	out := new(Tag)
 	err := c.cc.Invoke(ctx, RTDB_GetTag_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -55,6 +57,16 @@ func (c *rTDBClient) SetTag(ctx context.Context, in *SetTagRequest, opts ...grpc
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TagValue)
 	err := c.cc.Invoke(ctx, RTDB_SetTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rTDBClient) ListTags(ctx context.Context, in *ListTagsRequest, opts ...grpc.CallOption) (*ListTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTagsResponse)
+	err := c.cc.Invoke(ctx, RTDB_ListTags_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -84,8 +96,9 @@ type RTDB_SubscribeClient = grpc.ServerStreamingClient[TagValue]
 // All implementations must embed UnimplementedRTDBServer
 // for forward compatibility.
 type RTDBServer interface {
-	GetTag(context.Context, *GetTagRequest) (*TagValue, error)
+	GetTag(context.Context, *GetTagRequest) (*Tag, error)
 	SetTag(context.Context, *SetTagRequest) (*TagValue, error)
+	ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error)
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[TagValue]) error
 	mustEmbedUnimplementedRTDBServer()
 }
@@ -97,11 +110,14 @@ type RTDBServer interface {
 // pointer dereference when methods are called.
 type UnimplementedRTDBServer struct{}
 
-func (UnimplementedRTDBServer) GetTag(context.Context, *GetTagRequest) (*TagValue, error) {
+func (UnimplementedRTDBServer) GetTag(context.Context, *GetTagRequest) (*Tag, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTag not implemented")
 }
 func (UnimplementedRTDBServer) SetTag(context.Context, *SetTagRequest) (*TagValue, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetTag not implemented")
+}
+func (UnimplementedRTDBServer) ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTags not implemented")
 }
 func (UnimplementedRTDBServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[TagValue]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
@@ -163,6 +179,24 @@ func _RTDB_SetTag_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RTDB_ListTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RTDBServer).ListTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RTDB_ListTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RTDBServer).ListTags(ctx, req.(*ListTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _RTDB_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -188,6 +222,10 @@ var RTDB_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetTag",
 			Handler:    _RTDB_SetTag_Handler,
+		},
+		{
+			MethodName: "ListTags",
+			Handler:    _RTDB_ListTags_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

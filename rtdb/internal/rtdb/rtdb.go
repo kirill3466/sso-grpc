@@ -15,8 +15,9 @@ import (
 const defaultSubscribeEvery = 200 * time.Millisecond
 
 type Store interface {
-	Get(ctx context.Context, name string) (models.TagValue, error)
+	Get(ctx context.Context, name string) (models.Tag, error)
 	Set(ctx context.Context, name string, value float64) (models.TagValue, error)
+	List(ctx context.Context) ([]models.Tag, error)
 }
 
 type Service struct {
@@ -33,18 +34,32 @@ func New(log *slog.Logger, store Store) *Service {
 	}
 }
 
-func (s *Service) GetTag(ctx context.Context, name string) (models.TagValue, error) {
+func (s *Service) GetTag(ctx context.Context, name string) (models.Tag, error) {
 	const op = "rtdb.GetTag"
 
 	log := s.log.With(slog.String("op", op), slog.String("name", name))
 	log.Debug("getting tag")
 
-	value, err := s.store.Get(ctx, name)
+	tag, err := s.store.Get(ctx, name)
 	if err != nil {
-		return models.TagValue{}, mapStoreError(op, log, err)
+		return models.Tag{}, mapStoreError(op, log, err)
 	}
 
-	return value, nil
+	return tag, nil
+}
+
+func (s *Service) ListTags(ctx context.Context) ([]models.Tag, error) {
+	const op = "rtdb.ListTags"
+
+	log := s.log.With(slog.String("op", op))
+	log.Debug("listing tags")
+
+	tags, err := s.store.List(ctx)
+	if err != nil {
+		return nil, mapStoreError(op, log, err)
+	}
+
+	return tags, nil
 }
 
 func (s *Service) SetTag(ctx context.Context, name string, value float64) (models.TagValue, error) {
@@ -68,10 +83,12 @@ func (s *Service) Subscribe(ctx context.Context, names []string, emit func(model
 		Debug("subscribing", slog.Int("tags", len(names)))
 
 	names = uniqueNames(names)
-	if err := s.snapshot(ctx, names, nil); err != nil {
+	if err := s.snapshot(ctx, names, nil, nil); err != nil {
 		return err
 	}
-	if err := s.snapshot(ctx, names, emit); err != nil {
+
+	last := make(map[string]models.TagValue, len(names))
+	if err := s.snapshot(ctx, names, last, emit); err != nil {
 		return err
 	}
 
@@ -83,29 +100,44 @@ func (s *Service) Subscribe(ctx context.Context, names []string, emit func(model
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := s.snapshot(ctx, names, emit); err != nil {
+			if err := s.snapshot(ctx, names, last, emit); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func (s *Service) snapshot(ctx context.Context, names []string, emit func(models.TagValue) error) error {
+func (s *Service) snapshot(
+	ctx context.Context,
+	names []string,
+	last map[string]models.TagValue,
+	emit func(models.TagValue) error,
+) error {
 	const op = "rtdb.Subscribe"
 
 	log := s.log.With(slog.String("op", op))
 
 	for _, name := range names {
-		value, err := s.store.Get(ctx, name)
+		tag, err := s.store.Get(ctx, name)
 		if err != nil {
 			return mapStoreError(op, log, err)
 		}
 		if emit == nil {
 			continue
 		}
-		if err := emit(value); err != nil {
+
+		prev, ok := last[name]
+		var prevPtr *models.TagValue
+		if ok {
+			prevPtr = &prev
+		}
+		if !models.ShouldEmit(prevPtr, tag.Value, tag.Def.Deadband) {
+			continue
+		}
+		if err := emit(tag.Value); err != nil {
 			return err
 		}
+		last[name] = tag.Value
 	}
 
 	return nil
